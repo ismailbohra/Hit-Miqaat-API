@@ -3,7 +3,7 @@ name: Hit Miqaat API Every 5 Minutes
 on:
   schedule:
     - cron: '*/5 * * * *'  # every 5 minutes
-  workflow_dispatch:      # manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   hit-api:
@@ -15,7 +15,7 @@ jobs:
           API_URL: https://mqt-allocation.its52.com/api/v1/allocations/city-allocation/submit
           API_TOKEN: ${{ secrets.API_TOKEN }}
         run: |
-          curl -X POST "$API_URL" \
+          response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL" \
             -H "Authorization: Bearer $API_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{
@@ -25,4 +25,19 @@ jobs:
               "groupId": 50435909,
               "eventId": 4,
               "acceptedHold": true
-            }'
+            }')
+
+          # Separate response body and HTTP status code
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "✅ API hit successful! Status code: $http_code"
+            echo "Response body:"
+            echo "$body"
+          else
+            echo "❌ API hit failed! Status code: $http_code"
+            echo "Response body:"
+            echo "$body"
+            exit 1
+          fi
